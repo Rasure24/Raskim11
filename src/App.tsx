@@ -150,14 +150,19 @@ export default function App() {
     }
   };
 
-  const handleSaveQuiz = async (quizData: Partial<Quiz>) => {
+  const handleSaveQuiz = async (quizData: Partial<Quiz>, autoLaunch = false) => {
+    let saved: Quiz;
     if (editingQuiz) {
-      await api.updateQuiz(editingQuiz.id, quizData);
+      saved = await api.updateQuiz(editingQuiz.id, quizData);
     } else {
-      await api.createQuiz(quizData);
+      saved = await api.createQuiz(quizData);
     }
     await loadQuizzes();
-    setCurrentView('dashboard');
+    if (autoLaunch && saved) {
+      handleHostGame(saved.id);
+    } else {
+      setCurrentView('dashboard');
+    }
   };
 
   const handleQuestionsGenerated = (questions: Question[], topic: string) => {

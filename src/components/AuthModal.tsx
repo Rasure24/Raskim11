@@ -130,7 +130,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onAuthSuccess(user);
       onClose();
     } catch {
-      // fallback
       try {
         const user = await api.signup('Professor Blast', 'host@quizblast.io', 'Password123', 'Password123');
         onAuthSuccess(user);
@@ -138,6 +137,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } catch (e: unknown) {
         setGeneralError(e instanceof Error ? e.message : 'Demo login error');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestHostLogin = async () => {
+    setLoading(true);
+    setGeneralError('');
+    try {
+      const guestId = `host-${Date.now().toString().slice(-4)}`;
+      const user = await api.signup(`Host ${guestId}`, `guest-${guestId}@quizblast.io`, 'Password123', 'Password123');
+      onAuthSuccess(user);
+      onClose();
+    } catch {
+      await handleDemoLogin();
     } finally {
       setLoading(false);
     }
@@ -152,6 +166,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         >
           <X className="w-5 h-5" />
         </button>
+
+        {/* Instant 1-Click Access Card */}
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-900/50 via-pink-900/30 to-amber-900/40 border border-purple-500/40 text-center">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 block mb-1">
+            ⚡ Instant Host Access (No typing needed)
+          </span>
+          <div className="flex gap-2 mt-2">
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={loading}
+              className="flex-1 py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              👑 Login as Professor Blast
+            </button>
+            <button
+              type="button"
+              onClick={handleGuestHostLogin}
+              disabled={loading}
+              className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-200 border border-purple-500/30 font-bold text-xs shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              🚀 Continue as Guest
+            </button>
+          </div>
+        </div>
 
         {/* Tab switcher */}
         <div className="flex border-b border-slate-800 pb-4 mb-6">

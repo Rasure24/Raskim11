@@ -12,12 +12,15 @@ import {
   CheckCircle,
   Image as ImageIcon,
   HelpCircle,
+  Play,
+  CheckCircle2,
 } from 'lucide-react';
 import { Quiz, Question, QUESTION_COLORS, QuestionType } from '../types/quiz';
+import { sound } from '../utils/sound';
 
 interface QuizEditorProps {
   initialQuiz?: Quiz | null;
-  onSave: (quiz: Partial<Quiz>) => Promise<void>;
+  onSave: (quiz: Partial<Quiz>, autoLaunch?: boolean) => Promise<void>;
   onCancel: () => void;
   onOpenAIGenerator: () => void;
   generatedQuestions?: { questions: Question[]; topic: string } | null;
@@ -57,6 +60,7 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({
   const [activeQuestionIndex, setActiveQuestionIndex] = useState<number>(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Handle incoming AI questions if provided
   React.useEffect(() => {
@@ -144,33 +148,46 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (autoLaunch = false) => {
+    const finalTitle = title.trim() || 'My Custom Quiz';
     if (!title.trim()) {
-      setError('Quiz Title is required.');
-      return;
+      setTitle(finalTitle);
     }
-    for (let i = 0; i < questions.length; i++) {
-      if (!questions[i].text.trim()) {
-        setError(`Question #${i + 1} cannot have empty question text.`);
-        setActiveQuestionIndex(i);
-        return;
+
+    // Auto-normalize questions so save is 100% resilient
+    const cleanedQuestions = questions.map((q, idx) => {
+      let validChoices = q.choices.map((c) => c.trim()).filter(Boolean);
+      if (validChoices.length < 2) {
+        validChoices = q.type === 'true_false' ? ['True', 'False'] : ['Option 1', 'Option 2'];
       }
-      if (questions[i].choices.some((c) => !c.trim())) {
-        setError(`Question #${i + 1} has empty answer choices.`);
-        setActiveQuestionIndex(i);
-        return;
+      let validCorrect = q.correctAnswers.filter((i) => i < validChoices.length);
+      if (validCorrect.length === 0) {
+        validCorrect = [0];
       }
-    }
+      return {
+        ...q,
+        text: q.text.trim() || `Question #${idx + 1}`,
+        choices: validChoices,
+        correctAnswers: validCorrect,
+      };
+    });
 
     setSaving(true);
     setError('');
+    setSaveSuccess(false);
+
     try {
-      await onSave({
-        title: title.trim(),
-        description: description.trim(),
-        coverImage: coverImage.trim(),
-        questions,
-      });
+      await onSave(
+        {
+          title: finalTitle,
+          description: description.trim(),
+          coverImage: coverImage.trim(),
+          questions: cleanedQuestions,
+        },
+        autoLaunch
+      );
+      setSaveSuccess(true);
+      sound.playCorrect();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save quiz');
     } finally {
@@ -209,15 +226,32 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({
 
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={saving}
-            className="flex items-center space-x-2 px-5 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white text-xs font-extrabold shadow-lg shadow-pink-600/30 transition-all hover:scale-105 disabled:opacity-50"
+            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all hover:scale-105 disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-4 h-4 text-purple-400" />
             <span>{saving ? 'Saving...' : 'Save Quiz'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSave(true)}
+            disabled={saving}
+            className="flex items-center space-x-2 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-extrabold shadow-lg shadow-emerald-600/30 transition-all hover:scale-105 disabled:opacity-50"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            <span>Save & Host Live ⚡</span>
           </button>
         </div>
       </div>
+
+      {saveSuccess && (
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm flex items-center space-x-2">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          <span>Quiz saved successfully!</span>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
